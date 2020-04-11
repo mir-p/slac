@@ -105,6 +105,9 @@ public class SLAC extends JFrame {
 	private String sCorpusDir = new String();
 	private String sDefaultDir = new String();
 	private XPathExpression lemmax;
+	private HashMap<String, int[]> uniques;
+	private boolean uniquesGenerated = false; 
+	private int corpusLength;
 	
 	
 	public class FileType<File, Boolean> {
@@ -160,8 +163,10 @@ public class SLAC extends JFrame {
 		}
 	}
 	
-	public Set<Entry<String, Integer>> generateFrequencies(String pos) {
-		HashMap<String, Integer> uniques = new HashMap();
+	public Set<Entry<String, int[]>> generateFrequencies(String pos) {
+		corpusLength = 0;
+		uniquesGenerated = true;
+		uniques = new HashMap();
 		for(int i = 0; i < files.size(); i++) {
 			if(files.get(i).Type == true) {
 				try {
@@ -179,14 +184,17 @@ public class SLAC extends JFrame {
 						lemmax = xpath.compile("//w/text()");
 					}
 					NodeList lemmas = (NodeList) ((XPathExpression) lemmax).evaluate(doc, XPathConstants.NODESET);
+					corpusLength += lemmas.getLength();
 					XPathExpression posx = xpath.compile("//@pos");
 					NodeList poss = (NodeList) posx.evaluate(doc, XPathConstants.NODESET);
 					for (int j = 0; j < lemmas.getLength(); j++) {
 						if(customMatch(poss.item(j).getNodeValue(), pos) | pos.equals("")) {
 							if(uniques.get(lemmas.item(j).getNodeValue()) == null) {
-								uniques.put(lemmas.item(j).getNodeValue(), 1);
+								int[] k = {1, 0, 0, 0, 0, 0, 0};
+								uniques.put(lemmas.item(j).getNodeValue(), k);
 							} else {
-								uniques.put(lemmas.item(j).getNodeValue(), uniques.get(lemmas.item(j).getNodeValue())+1);
+								int[] k = {uniques.get(lemmas.item(j).getNodeValue())[0]+1, 0, 0, 0, 0, 0, 0};
+								uniques.put(lemmas.item(j).getNodeValue(), k);
 							}
 						}
 					}
@@ -208,11 +216,14 @@ public class SLAC extends JFrame {
 					try {
 						str = new String(Files.readAllBytes(Paths.get(files.get(i).FileObject.getPath())));
 						String[] lemmas = str.replaceAll("\\p{IsPunctuation}", "").split("\\s+");
+						corpusLength += lemmas.length;
 						for (int j = 0; j < lemmas.length; j++) {
 							if(uniques.get(lemmas[j]) == null) {
-								uniques.put(lemmas[j], 1);
+								int[] k = {1, 0, 0, 0, 0, 0, 0};
+								uniques.put(lemmas[j], k);
 							} else {
-								uniques.put(lemmas[j], uniques.get(lemmas[j])+1);
+								int[] k = {uniques.get(lemmas[j])[0]+1, 0, 0, 0, 0, 0, 0};
+								uniques.put(lemmas[j], k);
 							}
 						}
 					} catch (IOException e) {
@@ -222,32 +233,31 @@ public class SLAC extends JFrame {
 			}
 		}
 
-		Set<Entry<String, Integer>> entries = uniques.entrySet();
-		Comparator<Entry<String, Integer>> valueComparator = new Comparator<Entry<String, Integer>>() {
+		Set<Entry<String, int[]>> entries = uniques.entrySet();
+		Comparator<Entry<String, int[]>> valueComparator = new Comparator<Entry<String, int[]>>() {
             @Override
-            public int compare(Entry<String, Integer> e1, Entry<String, Integer> e2) {
-                Integer v1 = e1.getValue();
-                Integer v2 = e2.getValue();
+            public int compare(Entry<String, int[]> e1, Entry<String, int[]> e2) {
+                Integer v1 = e1.getValue()[0];
+                Integer v2 = e2.getValue()[0];
                 return v2.compareTo(v1);
             }
 		};
-            List<Entry<String, Integer>> listOfEntries = new ArrayList<Entry<String, Integer>>(entries);
+            List<Entry<String, int[]>> listOfEntries = new ArrayList<Entry<String, int[]>>(entries);
             Collections.sort(listOfEntries, valueComparator);
-            LinkedHashMap<String, Integer> sortedByValue = new LinkedHashMap<String, Integer>(listOfEntries.size());
-            for(Entry<String, Integer> entry : listOfEntries){
+            LinkedHashMap<String, int[]> sortedByValue = new LinkedHashMap<String, int[]>(listOfEntries.size());
+            for(Entry<String, int[]> entry : listOfEntries){
                 sortedByValue.put(entry.getKey(), entry.getValue());
             }
-            Set<Entry<String, Integer>> entrySetSortedByValue = sortedByValue.entrySet();
+            Set<Entry<String, int[]>> entrySetSortedByValue = sortedByValue.entrySet();
 		
 		return entrySetSortedByValue;
 	}
 	
 	public Set<Entry<String, Double[]>> findCollocations(String query, int swl, int swr, int sCollocMeasure) {
-		HashMap<String, int[]> uniques = new HashMap();
-		int corpusLength = 0;
+		//HashMap<String, int[]> uniques = new HashMap();
 		int queryOccurrences = 0;
 		int fn = 0;
-		for(int i = 0; i < files.size(); i++) {
+		/*for(int i = 0; i < files.size(); i++) {
 			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 			factory.setNamespaceAware(true); 
 			DocumentBuilder builder;
@@ -298,7 +308,7 @@ public class SLAC extends JFrame {
 				e1.printStackTrace();
 			} 
 			
-		}
+		}*/
 		for(int i = 0; i < files.size(); i++) {
 			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 			factory.setNamespaceAware(true); 
@@ -336,7 +346,7 @@ public class SLAC extends JFrame {
 						Map.Entry pair = (Map.Entry)itUniques1.next();
 						int[] v0 = (int[]) pair.getValue();
 						int v01 =  Collections.frequency(bag, pair.getKey());
-						uniques.put((String) pair.getKey(), new int[]{v0[0], v0[1], v0[2], v01, v0[4], v0[5]});
+						uniques.put((String) pair.getKey(), new int[]{v0[0], v0[1], v0[2], v0[3], v01, v0[5], v0[6]});
 					}
 					
 					for (int j = 0; j < bag.size(); j+=1) {
@@ -381,7 +391,7 @@ public class SLAC extends JFrame {
 							Map.Entry pair = (Map.Entry)itUniques.next();
 							if (customMatch(bag.get(windowCentre), sQuery) & windowDc.contains(pair.getKey())) {
 								int[] val = (int[]) pair.getValue();
-								int[] newVal = {val[0]+1, val[1], val[2], val[3], val[4], val[5]};
+								int[] newVal = {val[0], val[1]+1, val[2], val[3], val[4], val[5], val[6]};
 								if(windowL.contains(pair.getKey())) {
 									newVal[4]+=1;	
 								} else if(windowR.contains(pair.getKey())) {
@@ -390,11 +400,11 @@ public class SLAC extends JFrame {
 								uniques.put((String) pair.getKey(), newVal);
 							} else if (customMatch(bag.get(windowCentre), sQuery) & !(windowDc.contains(pair.getKey()))) {
 								int[] val = (int[]) pair.getValue();
-								int[] newVal = {val[0], val[1]+1, val[2], val[3], val[4], val[5]};
+								int[] newVal = {val[0], val[1], val[2]+1, val[3], val[4], val[5], val[6]};
 								uniques.put((String) pair.getKey(), newVal);
 							} else if (customMatch(bag.get(windowCentre), (String) pair.getKey()) & !(windowDc.contains(sQuery))) {
 								int[] val = (int[]) pair.getValue();
-								int[] newVal = {val[0], val[1], val[2]+1, val[3], val[4], val[5]};
+								int[] newVal = {val[0], val[1], val[2], val[3]+1, val[4], val[5], val[6]};
 								uniques.put((String) pair.getKey(), newVal);
 							}
 						}
@@ -419,13 +429,13 @@ public class SLAC extends JFrame {
 		while(itUniques.hasNext()) {
 			Map.Entry pair = (Map.Entry)itUniques.next();
 			int[] vals = (int[]) pair.getValue();
-			int a = vals[0]; // fnc
-			int b = vals[1];
-			int c = vals[2];
-			int fc =  vals[3];
+			int a = vals[1]; // fnc
+			int b = vals[2];
+			int c = vals[3];
+			int fc =  vals[4];
 			int d = corpusLength - fn - fc;
-			int al = vals[4];
-			int ar = vals[5];
+			int al = vals[5];
+			int ar = vals[6];
 
 			double ll = 0.0;
 			double mi = 0.0;
@@ -440,28 +450,31 @@ public class SLAC extends JFrame {
 			double dfc = (double) fc;
 			double dfn = (double) fn;
 			double dcorpusLength = (double) corpusLength;
-				ll = 2*( da*logn(da) + db*logn(db) + dc*logn(dc) + dd*logn(dd) - (da+db)*logn(da+db) - (da+dc)*logn(da+dc) - (db+dd)*logn(db+dd) - (dc+dd)*logn(dc+dd) + (da+db+dc+dd)*logn(da+db+dc+dd));
-				mi = log2( (da*dcorpusLength) / (dfn*dfc) );
-				ts = (da-((dfn*dfc)/dcorpusLength))/Math.sqrt(da);
-				if(dc <= 0.0) {
-					dc = 0.5;
-				}
-				logRatio = Math.log((da/fn) / (dc/(dcorpusLength - fn)))/Math.log(2);
-				if(a > 0) {
-					if(sCollocMeasure == 1) {
+			if(dc <= 0.0) {
+				dc = 0.5;
+			}
+				
+			if(a > 0) {
+				if(sCollocMeasure == 1) {
+					mi = log2( (da*dcorpusLength) / (dfn*dfc) );
+					lls.put((String) pair.getKey(), new Double[]{mi, (double) a, (double) al, (double) ar});
+				} else if (sCollocMeasure == 2) {
+					ll = 2*( da*logn(da) + db*logn(db) + dc*logn(dc) + dd*logn(dd) - (da+db)*logn(da+db) - (da+dc)*logn(da+dc) - (db+dd)*logn(db+dd) - (dc+dd)*logn(dc+dd) + (da+db+dc+dd)*logn(da+db+dc+dd));
+					if(ll > 3.8) {
+						mi = log2( (da*dcorpusLength) / (dfn*dfc) );
 						lls.put((String) pair.getKey(), new Double[]{mi, (double) a, (double) al, (double) ar});
-					} else if (sCollocMeasure == 2) {
-						if(ll > 3.8) {
-							lls.put((String) pair.getKey(), new Double[]{mi, (double) a, (double) al, (double) ar});
-						}
-					} else if (sCollocMeasure == 3) {
-						lls.put((String) pair.getKey(), new Double[]{ts, (double) a, (double) al, (double) ar});
-					} else if(sCollocMeasure == 4) {
-						lls.put((String) pair.getKey(), new Double[]{logRatio, (double) a, (double) al, (double) ar});
-					} else {
-						lls.put((String) pair.getKey(), new Double[]{ll, (double) a, (double) al, (double) ar});
 					}
+				} else if (sCollocMeasure == 3) {
+					ts = (da-((dfn*dfc)/dcorpusLength))/Math.sqrt(da);
+					lls.put((String) pair.getKey(), new Double[]{ts, (double) a, (double) al, (double) ar});
+				} else if(sCollocMeasure == 4) {
+					logRatio = Math.log((da/fn) / (dc/(dcorpusLength - fn)))/Math.log(2);
+					lls.put((String) pair.getKey(), new Double[]{logRatio, (double) a, (double) al, (double) ar});
+				} else {
+					ll = 2*( da*logn(da) + db*logn(db) + dc*logn(dc) + dd*logn(dd) - (da+db)*logn(da+db) - (da+dc)*logn(da+dc) - (db+dd)*logn(db+dd) - (dc+dd)*logn(dc+dd) + (da+db+dc+dd)*logn(da+db+dc+dd));
+					lls.put((String) pair.getKey(), new Double[]{ll, (double) a, (double) al, (double) ar});
 				}
+			}
 				 
 			//}
 		}
@@ -869,13 +882,13 @@ public class SLAC extends JFrame {
 				}
 				sFreqs.removeAll(sFreqs);
 				sPos = txtPos.getText();
-				Set<Entry<String, Integer>> frequencies = generateFrequencies(sPos);
+				Set<Entry<String, int[]>> frequencies = generateFrequencies(sPos);
 				int k = 1;
 				int sum = 0;
-	            for(Entry<String, Integer> mapping : frequencies){
+	            for(Entry<String, int[]> mapping : frequencies){
 	            	sFreqs.add(new Object[]{k, mapping.getKey(), mapping.getValue()});
-	                tFreqModel.addRow(new Object[]{k, mapping.getKey(), mapping.getValue()});
-	                sum += mapping.getValue();
+	                tFreqModel.addRow(new Object[]{k, mapping.getKey(), mapping.getValue()[0]});
+	                sum += mapping.getValue()[0];
 	                k++;
 	            }
 	            tokenNumber.setText(Integer.toString(sum));
@@ -1172,13 +1185,17 @@ public class SLAC extends JFrame {
 				sWL = (int) spinWL.getValue();
 				sWR = (int) spinWR.getValue();
 				sQuery = txtQuery.getText();
-		        Set<Entry<String, Double[]>> collocations = findCollocations(sQuery, sWL, sWR, sCollocMeasure);
-		        int k = 1;
-		        for(Entry<String, Double[]> mapping : collocations){
-		            sTable.add(new Object[]{k, mapping.getKey(), Math.round(mapping.getValue()[1]), Math.round(mapping.getValue()[2]), Math.round(mapping.getValue()[3]),  mapping.getValue()[0]});
-		            tModel.addRow(new Object[]{k, mapping.getKey(), Math.round(mapping.getValue()[1]), Math.round(mapping.getValue()[2]), Math.round(mapping.getValue()[3]),  mapping.getValue()[0]});
-		            k++;
-		            }
+				if(uniquesGenerated == true) {
+					Set<Entry<String, Double[]>> collocations = findCollocations(sQuery, sWL, sWR, sCollocMeasure);
+					int k = 1;
+			        for(Entry<String, Double[]> mapping : collocations){
+			            sTable.add(new Object[]{k, mapping.getKey(), Math.round(mapping.getValue()[1]), Math.round(mapping.getValue()[2]), Math.round(mapping.getValue()[3]),  mapping.getValue()[0]});
+			            tModel.addRow(new Object[]{k, mapping.getKey(), Math.round(mapping.getValue()[1]), Math.round(mapping.getValue()[2]), Math.round(mapping.getValue()[3]),  mapping.getValue()[0]});
+			            k++;
+			           }
+				} else {
+					JOptionPane.showMessageDialog(null, "Please, generate frequency list first.");
+				}
 		        }
 		});
 		
