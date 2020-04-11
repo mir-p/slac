@@ -34,7 +34,7 @@ Follow the instructions concerning installation of TreeTagger (pay attention to 
 
 If we use ReLDI-Tagger, given it's in the same directory as LEMING, we can call it through *reldi-wrap.py* script, i.e. Path/Language field should contain the text `python2 reldi-wrap.py`.
 
-For now, LEMING does not show lemmatisation progress. It's frozen until it finishes processing all content from the database or each text file loaded. 
+For now, LEMING does not show lemmatisation progress. It's frozen until it finishes processing all content from the database or each text file loaded. Problems concerning UTF-8 support under Windows can also occur.
 
 <a href="https://github.com/mir-p/slac/blob/master/LEMING.java">Download JAR binary (Java, ~6,1 MB)</a>
 
