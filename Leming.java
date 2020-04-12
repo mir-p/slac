@@ -1,3 +1,5 @@
+// TODO
+// - support spaces in lemmatiser paths (python reldi-wrap.py)
 import java.awt.BorderLayout;
 import java.awt.EventQueue;
 import java.awt.event.ActionEvent;
@@ -18,7 +20,11 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.StringTokenizer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -37,6 +43,7 @@ import javax.swing.JFileChooser;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JTextPane;
+import javax.swing.JCheckBox;
 
 public class leming extends JFrame {
 
@@ -49,7 +56,58 @@ public class leming extends JFrame {
 	private JTextField txtOutputDir;
 	private ArrayList<File> files = new ArrayList<File>();
 	Process p;
-
+	
+	private static String escape(String input) {
+		String output = new String();
+		HashMap<Character, String> esc_chars = new HashMap<Character, String>();
+		esc_chars.put('"', "&quot;");
+		esc_chars.put('\'', "&apos;");
+		esc_chars.put('>', "&gt;");
+		esc_chars.put('<', "&lt;");
+		esc_chars.put('&', "&amp;");
+		for(int i = 0; i < input.length(); i++) {
+			Character c = input.charAt(i);
+			boolean escaped = false;
+			for (HashMap.Entry<Character, String> e : esc_chars.entrySet()) {
+			   if(c.equals(e.getKey())) {
+				   output += e.getValue();
+				   escaped = true;
+				   break;
+			   } 
+			}
+			if(escaped == false) {
+				output += input.charAt(i);
+			}
+		}
+		return output;
+	}
+	
+	private static ArrayList<String> tokeniser(String input) {
+		ArrayList<String> output = new ArrayList<String>();
+		String token = "";
+		Pattern p1 = Pattern.compile("\\s");
+		Pattern p2 = Pattern.compile("\\p{Punct}");
+		for(int i = 0; i < input.length(); i++) {
+			Matcher m1 = p1.matcher(Character.toString(input.charAt(i)));
+			Matcher m2 = p2.matcher(Character.toString(input.charAt(i)));
+			if(m1.find()) {
+				if(!(token.equals(""))) {
+					output.add(token);
+					token = "";
+				}
+			} else {
+				if(m2.find()) {
+					output.add(token);
+					output.add(m2.group());
+					token = "";
+				} else {
+					token += input.charAt(i);
+				}
+			} 
+		}
+		return output;
+	}
+	
 	/**
 	 * Launch the application.
 	 */
@@ -143,6 +201,8 @@ public class leming extends JFrame {
 		txtLemmatiserPath.setText("tree-tagger-polish");
 		txtLemmatiserPath.setColumns(10);
 		
+		JCheckBox cbTokenise = new JCheckBox("Tokenise");
+		
 		JLabel lblOutputDirectory = new JLabel("Output directory:");
 		
 		txtOutputDir = new JTextField();
@@ -189,7 +249,13 @@ public class leming extends JFrame {
 			    								FileWriter fw;
 			    								try {
 			    									fw = new FileWriter(new File("lemmatisation.tmp"));
-			    									fw.write(rs.getString("text"));
+			    									String txtout = rs.getString("text");
+			    									if(cbTokenise.isSelected()) {
+			    										ArrayList<String> tokens = tokeniser(txtout);
+			    										fw.write(String.join("\n", tokens));
+			    									} else {
+			    										fw.write(txtout);
+			    									}
 			    									fw.close();
 			    								} catch (IOException e1) {
 			    									// TODO Auto-generated catch block
@@ -200,17 +266,15 @@ public class leming extends JFrame {
 												}
 			    								List<String> cmd = new ArrayList<String>(Arrays.asList(txtLemmatiserPath.getText().split(" ")));
 			    								cmd.add("lemmatisation.tmp");
-			    								System.out.println(String.join(" ", cmd));
 			    								try {
 			    									ProcessBuilder pb = new ProcessBuilder(cmd);
 			    									//pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
 			    									p = pb.start();
-			    									System.out.println(String.join(" ", cmd));
 			    									BufferedReader in = new BufferedReader(new InputStreamReader(p.getInputStream()));
 			    									String line;
 			    									ArrayList<String> raw = new ArrayList<String>();
 			    									while ((line = in.readLine()) != null) {
-			    									    raw.add(line+"\n");
+			    									    raw.add(escape(line)+"\n");
 			    									}
 			    									String out = "<TEI><teiHeader><fileDesc><titleStmt>\n";
 			    									//ResultSetMetaData metadata = rs.getMetaData();
@@ -246,7 +310,6 @@ public class leming extends JFrame {
 			    									fw = new FileWriter(new File(txtOutputDir.getText() + "/" + Integer.toString(i) + ".xml"));
 			    									fw.write(out);
 			    									fw.close();
-			    									//System.out.println(out);
 			    									textPane.setText(textPane.getText() + "lemmatising " + Integer.toString(i) + "\n");
 			    									textPane.setText(textPane.getText() + "-- lemmatised " + txtOutputDir.getText() + "/" + Integer.toString(i) + ".xml\n");
 			    								
@@ -285,7 +348,12 @@ public class leming extends JFrame {
 								FileWriter fw;
 								try {
 									fw = new FileWriter(new File("lemmatisation.tmp"));
-									fw.write(str);
+									if(cbTokenise.isSelected()) {
+										ArrayList<String> tokens = tokeniser(str);
+										fw.write(String.join("\n", tokens));
+									} else {
+										fw.write(str);
+									}
 									fw.close();
 								} catch (IOException e1) {
 									// TODO Auto-generated catch block
@@ -297,7 +365,6 @@ public class leming extends JFrame {
 									ProcessBuilder pb = new ProcessBuilder(cmd);
 									//pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
 									p = pb.start();
-									System.out.println(String.join(" ", cmd));
 									BufferedReader in = new BufferedReader(new InputStreamReader(p.getInputStream()));
 									String line;
 									ArrayList<String> raw = new ArrayList<String>();
@@ -308,11 +375,13 @@ public class leming extends JFrame {
 									for(int j = 0; j < raw.size(); j++) {
 										if(j > 1 & j < raw.size()-2) {
 											String[] tgd = raw.get(j).split("\t");
-											tgd[2] = tgd[2].substring(0, tgd[2].length()-1);
-											if(tgd[2].equals("<unknown>")) {
-												tgd[2] = tgd[0];
+											if(tgd.length > 2) {
+												tgd[2] = tgd[2].substring(0, tgd[2].length()-1);
+												if(tgd[2].equals("<unknown>")) {
+													tgd[2] = tgd[0];
+												}
+												out += "<w lemma=\"" + escape(tgd[2]) + "\" pos=\"" + escape(tgd[1]) + "\">" + escape(tgd[0]) + "</w>\n";
 											}
-											out += "<w lemma=\"" + tgd[2] + "\" pos=\"" + tgd[1] + "\">" + tgd[0] + "</w>\n";
 										}
 									}
 									out += "</text>";
@@ -352,8 +421,6 @@ public class leming extends JFrame {
 				}
 			}
 		});
-		
-		
 		
 		GroupLayout gl_contentPane = new GroupLayout(contentPane);
 		gl_contentPane.setHorizontalGroup(
@@ -400,19 +467,25 @@ public class leming extends JFrame {
 								.addComponent(btnSelect_2, 0, 0, Short.MAX_VALUE))))
 					.addGroup(gl_contentPane.createParallelGroup(Alignment.LEADING)
 						.addGroup(gl_contentPane.createSequentialGroup()
-							.addGap(23)
-							.addGroup(gl_contentPane.createParallelGroup(Alignment.LEADING)
-								.addComponent(btnStart, GroupLayout.DEFAULT_SIZE, 264, Short.MAX_VALUE)
-								.addComponent(lblLemmatiser)
-								.addComponent(scrollPane_1, GroupLayout.DEFAULT_SIZE, 264, Short.MAX_VALUE)))
-						.addGroup(gl_contentPane.createSequentialGroup()
-							.addGap(48)
 							.addGroup(gl_contentPane.createParallelGroup(Alignment.LEADING)
 								.addGroup(gl_contentPane.createSequentialGroup()
-									.addGap(12)
-									.addComponent(txtLemmatiserPath, GroupLayout.PREFERRED_SIZE, 216, GroupLayout.PREFERRED_SIZE))
-								.addComponent(lblPath))))
-					.addGap(21))
+									.addGap(23)
+									.addGroup(gl_contentPane.createParallelGroup(Alignment.LEADING)
+										.addComponent(btnStart, GroupLayout.DEFAULT_SIZE, 381, Short.MAX_VALUE)
+										.addComponent(lblLemmatiser)
+										.addComponent(scrollPane_1, GroupLayout.DEFAULT_SIZE, 381, Short.MAX_VALUE)))
+								.addGroup(gl_contentPane.createSequentialGroup()
+									.addGap(48)
+									.addGroup(gl_contentPane.createParallelGroup(Alignment.LEADING)
+										.addGroup(gl_contentPane.createSequentialGroup()
+											.addGap(12)
+											.addComponent(txtLemmatiserPath, GroupLayout.PREFERRED_SIZE, 216, GroupLayout.PREFERRED_SIZE))
+										.addComponent(lblPath))))
+							.addGap(21))
+						.addGroup(gl_contentPane.createSequentialGroup()
+							.addGap(60)
+							.addComponent(cbTokenise)
+							.addContainerGap())))
 		);
 		gl_contentPane.setVerticalGroup(
 			gl_contentPane.createParallelGroup(Alignment.LEADING)
@@ -456,12 +529,15 @@ public class leming extends JFrame {
 							.addComponent(lblPath)
 							.addPreferredGap(ComponentPlacement.RELATED)
 							.addComponent(txtLemmatiserPath, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
-							.addGap(39)
+							.addGap(8)
+							.addComponent(cbTokenise)
+							.addPreferredGap(ComponentPlacement.UNRELATED)
 							.addComponent(btnStart)
 							.addGap(18)
-							.addComponent(scrollPane_1, GroupLayout.DEFAULT_SIZE, 184, Short.MAX_VALUE)))
+							.addComponent(scrollPane_1, GroupLayout.DEFAULT_SIZE, 144, Short.MAX_VALUE)))
 					.addPreferredGap(ComponentPlacement.UNRELATED)
-							.addComponent(scrollPane_1, GroupLayout.DEFAULT_SIZE, 190, Short.MAX_VALUE)));
+					.addComponent(scrollPane_1, GroupLayout.DEFAULT_SIZE, 144, Short.MAX_VALUE))
+		);
 		
 		contentPane.setLayout(gl_contentPane);
 	}

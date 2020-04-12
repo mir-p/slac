@@ -1,3 +1,7 @@
+// TODO
+// - count rows: in source DB, in target DB
+// - generate random samples
+// - scripts for Politika, Vecernje novosti, Novi list, Jutarnji list, Vecernji list, Gazeta Wyborcza
 package scrapper;
 
 import java.awt.BorderLayout;
@@ -153,7 +157,7 @@ public class Scrapper extends JFrame {
 		
 		JLabel lblScript = new JLabel("Script:");
 		
-		JComboBox cbScript = new JComboBox();
+		/*JComboBox cbScript = new JComboBox();
 		try (Stream<Path> walk = Files.walk(Paths.get("./resources"))) {
 			List<String> result = walk.map(x -> x.toString()).filter(f -> f.endsWith(".py")).collect(Collectors.toList());
 			for(int i = 0; i < result.size(); i++) {
@@ -164,7 +168,7 @@ public class Scrapper extends JFrame {
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
-		}
+		}*/
 		
 		JScrollPane scrollPaneScript = new JScrollPane();
 		
@@ -256,6 +260,7 @@ public class Scrapper extends JFrame {
 			}
 			Properties loadProps = configs.get(0);
 			String cfgScript0 = loadProps.getProperty("ScriptFile");
+			activeScript = cfgScript0;
 			String startingPage0 = loadProps.getProperty("DefaultStartingPage");
 			String url0 = loadProps.getProperty("Url");
 			String str = new String(Files.readAllBytes(Paths.get("./resources/" + cfgScript0)));
